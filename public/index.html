@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09111d">
+  <meta name="description" content="Calibrate a coordinate mat in your browser and read a target point from a camera or image.">
+  <title>SpatialSync · Coordinate Reader Trial</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="SpatialSync home">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none"><path d="M14 2.5v6m0 11v6M2.5 14h6m11 0h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="14" cy="14" r="6.1" stroke="currentColor" stroke-width="1.5"/><circle cx="14" cy="14" r="1.8" fill="currentColor"/></svg></span>
+      <span class="brand-text"><strong>SpatialSync</strong><small>COORDINATE READER</small></span>
+      <span class="trial-badge">TRIAL</span>
+    </a>
+    <div class="top-actions">
+      <span class="privacy-chip"><span class="privacy-dot"></span>Processed in this browser</span>
+      <button class="button button-quiet" id="load-demo" type="button" title="Load a sample mat image">Load demo</button>
+      <label class="button button-secondary file-button" for="image-upload">Upload image<input id="image-upload" type="file" accept="image/*" hidden></label>
+      <button class="button button-primary" id="start-camera" type="button">Start camera</button>
+      <button class="button button-secondary hidden" id="stop-camera" type="button">Stop camera</button>
+    </div>
+  </header>
+
+  <main id="top" class="page-shell">
+    <section class="intro-row">
+      <div>
+        <p class="eyebrow"><span class="eyebrow-line"></span>SPATIAL MAT / POINT READING</p>
+        <h1>Read a position from your mat.</h1>
+        <p class="intro-copy">Set the mat dimensions, mark its four corners, then tap a point or find the red target. The browser converts the image position into mat coordinates.</p>
+      </div>
+      <div class="workflow-chip" id="workflow-chip"><span class="workflow-number">01</span><span id="workflow-label">Set up your mat</span></div>
+    </section>
+
+    <section class="workspace-grid" aria-label="Coordinate reader workspace">
+      <div class="left-column">
+        <section class="panel capture-panel" aria-labelledby="mat-view-title">
+          <div class="panel-heading capture-heading">
+            <div>
+              <div class="section-kicker">CAMERA / IMAGE VIEW</div>
+              <h2 id="mat-view-title">Mat view</h2>
+            </div>
+            <div class="source-state"><span class="state-dot" id="source-state-dot"></span><span id="source-state-label">Demo mat loaded</span></div>
+          </div>
+          <div class="stage" id="stage">
+            <canvas id="scene-canvas" aria-label="Mat image. Click the four mat corners during calibration, then click the target point." role="img"></canvas>
+            <div class="stage-chip"><span class="live-dot"></span><span id="stage-source-label">DEMO IMAGE</span></div>
+            <div class="stage-hud"><span class="hud-cross">+</span><span id="stage-hud-text">Waiting for calibration</span></div>
+          </div>
+          <div class="calibration-actions">
+            <button class="button button-primary" id="calibrate-mat" type="button">Calibrate mat</button>
+            <button class="button button-secondary" id="undo-corner" type="button" disabled>Undo corner</button>
+            <button class="button button-quiet" id="reset-mat" type="button">Reset</button>
+            <span class="corner-count" id="corner-count">0 / 4 corners</span>
+          </div>
+          <div class="instruction-row" id="instruction-row" aria-live="polite">
+            <span class="instruction-icon" id="instruction-icon">1</span>
+            <p id="instruction-text">Set your mat size, then select <strong>Calibrate mat</strong> and click the four corners clockwise, starting at the far-left corner.</p>
+          </div>
+        </section>
+
+        <section class="panel map-panel" aria-labelledby="map-title">
+          <div class="panel-heading map-heading">
+            <div>
+              <div class="section-kicker">TOP-DOWN COORDINATE MAP</div>
+              <h2 id="map-title">Mat map</h2>
+            </div>
+            <span class="map-legend"><span class="legend-dot"></span>Selected target</span>
+          </div>
+          <div class="map-wrap"><canvas id="map-canvas" aria-label="Top-down coordinate map of the mat"></canvas></div>
+          <div class="axis-caption"><span><b>X</b> increases to the right</span><span><b>Z</b> increases away from the origin</span></div>
+        </section>
+      </div>
+
+      <aside class="right-column">
+        <section class="panel setup-panel" aria-labelledby="setup-title">
+          <div class="panel-heading compact-heading">
+            <div>
+              <div class="section-kicker">MAT SETUP</div>
+              <h2 id="setup-title">Physical dimensions</h2>
+            </div>
+            <span class="step-tag">01</span>
+          </div>
+          <div class="dimension-grid">
+            <label class="field-label" for="mat-width">Width <span>X axis</span><div class="input-wrap"><input id="mat-width" type="number" min="10" max="500" step="1" value="60"><span>cm</span></div></label>
+            <label class="field-label" for="mat-depth">Depth <span>Z axis</span><div class="input-wrap"><input id="mat-depth" type="number" min="10" max="500" step="1" value="40"><span>cm</span></div></label>
+          </div>
+          <div class="origin-note"><span class="origin-symbol">⊙</span><span><strong>Origin (0, 0, 0)</strong> is at the near-left mat corner. Y is height above the mat.</span></div>
+          <div class="corner-guide">
+            <div class="corner-guide-title">CORNER ORDER</div>
+            <div class="corner-sequence"><span><i>1</i>Far-left</span><span><i>2</i>Far-right</span><span><i>3</i>Near-right</span><span><i>4</i>Near-left</span></div>
+          </div>
+        </section>
+
+        <section class="panel readout-panel" aria-labelledby="readout-title">
+          <div class="panel-heading compact-heading">
+            <div>
+              <div class="section-kicker">LIVE POSITION</div>
+              <h2 id="readout-title">Coordinates</h2>
+            </div>
+            <span class="readout-status" id="readout-status"><span class="status-dot"></span>Waiting</span>
+          </div>
+          <div class="coordinate-grid" aria-live="polite">
+            <div class="coordinate-cell"><div class="coordinate-axis">X <span>← →</span></div><div class="coordinate-value"><strong id="coord-x">—</strong><small>cm</small></div></div>
+            <div class="coordinate-cell"><div class="coordinate-axis">Y <span>height</span></div><div class="coordinate-value"><strong id="coord-y">0.0</strong><small>cm</small></div></div>
+            <div class="coordinate-cell"><div class="coordinate-axis">Z <span>near ↗ far</span></div><div class="coordinate-value"><strong id="coord-z">—</strong><small>cm</small></div></div>
+          </div>
+          <div class="meter-readout" id="meter-readout">Meters: <span>—</span></div>
+          <div class="readout-actions">
+            <button class="button button-accent" id="detect-target" type="button" disabled><span class="button-spark">✦</span>Detect red target</button>
+            <button class="button button-secondary" id="add-reading" type="button" disabled>Add to log</button>
+          </div>
+          <p class="target-hint">Or click the target's center in the mat view for a manual reading.</p>
+        </section>
+
+        <section class="panel log-panel" aria-labelledby="log-title">
+          <div class="panel-heading compact-heading log-heading">
+            <div>
+              <div class="section-kicker">SESSION RECORD</div>
+              <h2 id="log-title">Reading log <span class="log-count" id="log-count">0</span></h2>
+            </div>
+            <button class="text-button" id="export-log" type="button" disabled>Export CSV</button>
+          </div>
+          <div class="log-list" id="log-list"><div class="empty-log"><span class="empty-log-mark">◌</span><span>Saved readings appear here.</span></div></div>
+        </section>
+
+        <section class="note-card">
+          <div class="note-icon">i</div>
+          <div><strong>Trial scope</strong><p>Mat corners are calibrated by tapping. Automatic target detection looks for the largest red mark. Camera images stay on this device; no multi-phone sync or automatic mat recognition is connected yet.</p></div>
+        </section>
+      </aside>
+    </section>
+    <footer class="page-footer"><span>SpatialSync coordinate reader · browser trial</span><span>Plane axes: X / Y=0 / Z</span></footer>
+  </main>
+
+  <video id="camera-video" playsinline muted class="offscreen-media"></video>
+  <canvas id="source-canvas" class="offscreen-media" aria-hidden="true"></canvas>
+  <input id="hidden-image-upload" type="file" accept="image/*" hidden>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script src="./app.js"></script>
+</body>
+</html>
